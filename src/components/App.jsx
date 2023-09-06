@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { nanoid } from 'nanoid';
 import { ContactForm } from './ContactForm/ContactForm';
 import { ContactList } from './ContactList/ContactList';
@@ -10,32 +10,28 @@ import { StyledNotification } from './Notification.styled';
 
 const LS_KEY = 'contacts';
 
-export class App extends Component {
-  state = {
-    contacts: [],
-    filter: '',
-  };
+// Отримуємо контакти з LS
+const getInitialContacts = () => {
+  const savedContacts = localStorage.getItem(LS_KEY);
 
-  componentDidMount() {
-    const contacts = localStorage.getItem(LS_KEY);
-    const parsedContacts = JSON.parse(contacts);
-
-    if (parsedContacts) {
-      this.setState({ contacts: parsedContacts });
-    }
+  if (savedContacts) {
+    return JSON.parse(savedContacts);
   }
+  return [];
+};
 
-  componentDidUpdate(prevProps, prevState) {
-    const currentContacts = this.state.contacts;
-    const prevContacts = prevState.contacts;
+export const App = () => {
+  const [contacts, setContacts] = useState(getInitialContacts);
+  const [filter, setFilter] = useState('');
 
-    if (currentContacts !== prevContacts) {
-      localStorage.setItem(LS_KEY, JSON.stringify(currentContacts));
-    }
-  }
+  // Записуємо контакти в LS
+  useEffect(() => {
+    localStorage.setItem(LS_KEY, JSON.stringify(contacts));
+  }, [contacts]);
 
-  addContact = newContact => {
-    const isContactInList = this.state.contacts.some(
+  // Додаємо контакт до списку / перевіряємо чи такий контакт вже є у списку
+  const addContact = newContact => {
+    const isContactInList = contacts.some(
       contact => contact.name.toLowerCase() === newContact.name.toLowerCase()
     );
 
@@ -44,61 +40,59 @@ export class App extends Component {
       return;
     }
 
-    this.setState(prevState => ({
-      contacts: [...prevState.contacts, { id: nanoid(), ...newContact }],
-    }));
+    setContacts(prevContacts => [
+      ...prevContacts,
+      { id: nanoid(), ...newContact },
+    ]);
   };
 
-  filterContactsByName = newContactName => {
-    this.setState({
-      filter: newContactName,
-    });
-  };
-
-  deleteContact = contactId => {
-    this.setState(prevState => ({
-      contacts: prevState.contacts.filter(contact => contact.id !== contactId),
-    }));
-  };
-
-  render() {
-    const { contacts, filter } = this.state;
-
-    const filteredContacts = contacts.filter(contact =>
-      contact.name.toLowerCase().includes(filter.toLowerCase())
+  // Видаляємо контакт зі списку
+  const deleteContact = contactId => {
+    setContacts(prevContacts =>
+      prevContacts.filter(contact => contact.id !== contactId)
     );
+  };
 
-    return (
-      <>
-        <StyledSection>
-          <Container>
-            <SectionTitle>Phonebook</SectionTitle>
-            <ContactForm onAdd={this.addContact} />
-          </Container>
-        </StyledSection>
+  // Отримуємо значення інпута в стейті
+  const filterContactsByName = newContactName => {
+    setFilter(newContactName);
+  };
 
-        <StyledSection>
-          <Container>
-            <ContactsTitle>Contacts</ContactsTitle>
-            <ContactFilter
-              filter={filter}
-              onfilterContactsByName={this.filterContactsByName}
+  // Перевіряємо, чи містить масив контактів значення з інпута; якщо так - повертаємо новий масив з цим значенням
+  const filteredContacts = contacts.filter(contact =>
+    contact.name.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  return (
+    <>
+      <StyledSection>
+        <Container>
+          <SectionTitle>Phonebook</SectionTitle>
+          <ContactForm onAdd={addContact} />
+        </Container>
+      </StyledSection>
+
+      <StyledSection>
+        <Container>
+          <ContactsTitle>Contacts</ContactsTitle>
+          <ContactFilter
+            filter={filter}
+            onfilterContactsByName={filterContactsByName}
+          />
+          {contacts.length > 0 && filteredContacts.length > 0 ? (
+            <ContactList
+              contacts={filteredContacts}
+              ondeleteContact={deleteContact}
             />
-            {contacts.length > 0 ? (
-              <ContactList
-                contacts={filteredContacts}
-                ondeleteContact={this.deleteContact}
-              />
-            ) : (
-              <StyledNotification>
-                There are no contacts to show! Please add some contacts to the
-                phonebook
-              </StyledNotification>
-            )}
-          </Container>
-        </StyledSection>
-        <GlobalStyle />
-      </>
-    );
-  }
-}
+          ) : (
+            <StyledNotification>
+              There are no contacts to show! Please add some contacts to the
+              phonebook or check your search query
+            </StyledNotification>
+          )}
+        </Container>
+      </StyledSection>
+      <GlobalStyle />
+    </>
+  );
+};
